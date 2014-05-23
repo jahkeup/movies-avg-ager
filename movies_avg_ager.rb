@@ -120,7 +120,6 @@ end
 def get_all_ages
   LOG.info("Retrieving stats...")
   movies = get_now_showing_movies
-  movies = [movies[0], movies[1]]
   movies.map do |mov|
     mov[:date] = get_movie_show_date(mov)
     cast = get_movie_cast(mov)
