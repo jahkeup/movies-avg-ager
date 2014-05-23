@@ -7,7 +7,7 @@ require 'pry'
 
 
 IMDB_BASE = 'http://www.imdb.com'
-IMDB_NOW_SHOWING_URL = IMDB_BASE + '/movies-in-theaters/'
+IMDB_NOW_SHOWING_URL = IMDB_BASE + '/showtimes/location?sort=title&ref_=shlc_sort'
 HTTP = Net::HTTP::Persistent.new('movies')
 LOG = Logger.new(STDERR)
 LOG.level = Logger::DEBUG
@@ -20,7 +20,7 @@ end
 def get_now_showing_movies()
   LOG.info("Fetching all movies that are showing.")
   doc_tree = Nokogiri::HTML(fetch(IMDB_NOW_SHOWING_URL))
-  nodes = doc_tree.xpath("//div[@itemscope]//h4[@itemprop='name']/a")
+  nodes = doc_tree.xpath("//div[@itemscope]//*[@itemprop='name']/a")
   nodes.collect { |mov| link_from_node(mov) }
 end
 
