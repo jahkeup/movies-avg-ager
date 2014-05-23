@@ -3,7 +3,14 @@
 This ruby script fetches the current list of movies showing in
 theaters and displays the average age of its cast.
 
-# Example run:
+# Installation & Running
+
+To install this, have a ruby installation > `1.9.3`. Use `bundle
+install --without development` to get all the gems necessary to run
+the script. If you need to play around with the script, feel free to
+install everything and use pry to well.. pry.
+
+## Example run:
 
     Jacob@Jacobs-MacBook-Pro movies-avg-ager [master]
     ± % ./movies_avg_ager.rb 2>run.log

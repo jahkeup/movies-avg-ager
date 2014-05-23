@@ -1,14 +1,22 @@
 #!/usr/bin/env ruby
+#
+# Jacob Vallejo (c) 2014
+#
+# IMDb average age checker for currently showing movies
+# Just run it and it will go.
+#
+
 require 'nokogiri'
 require 'net/http/persistent'
 require 'date'
 require 'logger'
 require 'pry'
 
-
 IMDB_BASE = 'http://www.imdb.com'
 IMDB_NOW_SHOWING_URL = IMDB_BASE + '/showtimes/location?sort=title&ref_=shlc_sort'
+
 HTTP = Net::HTTP::Persistent.new('movies')
+
 LOG = Logger.new(STDERR)
 LOG.level = Logger::DEBUG
 
@@ -18,7 +26,7 @@ end
 
 # Get the movies that are currently in theater
 def get_now_showing_movies()
-  LOG.info("Fetching all movies that are showing.")
+  LOG.info("Fetching all movies that are showing from #{IMDB_NOW_SHOWING_URL}")
   doc_tree = Nokogiri::HTML(fetch(IMDB_NOW_SHOWING_URL))
   nodes = doc_tree.xpath("//div[@itemscope]//*[@itemprop='name']/a")
   nodes.collect { |mov| link_from_node(mov) }
@@ -93,7 +101,6 @@ def get_all_ages
     cast = get_movie_cast(mov)
     LOG.debug("Movie has #{cast.count} member(s)")
     ages = cast.map {|c| get_cast_member_age(c)}
-    mov[:ages] = ages
     ages = ages.inject([]) {|t,a| t << a if a; t} # clean out nils
     LOG.debug("Ages were found for #{ages.count} out of #{cast.count} member(s).")
     mov[:avg] = (ages.inject {|t,a| t + a }) / ages.count
@@ -101,9 +108,12 @@ def get_all_ages
   end
 end
 
+# Execute only when this isn't a required lib
 if __FILE__ == $0
-  puts("Average age for movies showing:")
-  get_all_ages.each do |m|
-    puts(m[:name] + ' => ' + m[:avg].to_s)
+  puts "Here are the movies showing according to: #{IMDB_NOW_SHOWING_URL}"
+  puts "Average age for movies showing:"
+  movs = get_all_ages.each do |m|
+    puts m[:name] + ' => ' + m[:avg].to_s
   end
+  puts "\nThat it, all #{movs.count} movies showing."
 end
