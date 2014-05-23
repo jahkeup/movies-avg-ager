@@ -57,43 +57,58 @@ end
 # Get the cast for a given movie link
 def get_movie_cast(mov)
   LOG.info("Retrieving movie cast for #{mov[:name]}")
-  doc_tree = Nokogiri::HTML(fetch(mov[:link] + "fullcredits"))
+  doc_tree = Nokogiri::HTML(fetch(mov[:link].gsub("showtimes/", "") + "/fullcredits"))
   cast = doc_tree.xpath("//table[@class='cast_list']//td[@itemprop='actor']/a")
   cast.collect { |c| link_from_node(c) }
 end
 
 # Parse a string date (1983-8-12) to an age in years
-def parse_age(datestr)
-  LOG.debug("Cast member birthdate: '#{datestr}'")
+def parse_age(borndate, deathdate = nil)
+  LOG.debug("Cast member birthdate: '#{borndate}'")
+  LOG.debug("Cast member died: '#{deathdate}'") if deathdate
+  deathdate ||= DateTime.now
+
+
   # Some actors don't have their age, they're up and coming actors
-  if datestr.empty?
+  if borndate.empty?
     LOG.debug("Cast member's birthdate is not available.")
     return nil
   end
 
   # If missing the birth month/day, just use the year they were born
-  datestr = datestr.split('-')[0] + "-1-1" if datestr =~ /-0-0/
-
+  # There are a few cases where we get 1963-0-0 as the birthdate
+  borndate = borndate.split('-')[0] + "-1-1" if borndate =~ /-0-0/
   begin
-    birthdate = DateTime.parse(datestr.to_s)
+    birthdate = DateTime.parse(borndate.to_s)
   rescue ArgumentError
     LOG.debug("The date time format was invalid, skipping this cast member.")
     return nil
   end
-  age = (DateTime.now - birthdate).to_i / 365
+
+  # Process death (end date) safely
+  begin
+    deathdate = DateTime.parse(deathdate.to_s)
+  rescue Exception
+    LOG.debug("The death date could not be parsed. Using today to calculate.")
+    deathdate = DateTime.now
+  end
+
+  age = (deathdate - birthdate).to_i / 365
 end
 
 # Get age of the cast member
 def get_cast_member_age(cst)
   LOG.info("Retreiving cast member '#{cst[:name]}' info at #{cst[:link]}")
   doc_tree = Nokogiri::HTML(fetch(cst[:link]))
-  # Born date in format YYYY-MM-DD
+  # Date in format YYYY-MM-DD
   born_date = doc_tree.xpath("//*[@id='name-born-info']//time/@datetime")
-  age = parse_age(born_date.to_s)
+  death_date = doc_tree.xpath("//*[@id='name-death-info']//time/@datetime")
+  age = parse_age(born_date.to_s, death_date.empty? ? nil : death_date.to_s)
   LOG.debug("#{cst[:name]} => #{age}")
   age
 end
 
+# Get all the movies and their average ages
 def get_all_ages
   LOG.info("Retrieving stats...")
   movies = get_now_showing_movies
