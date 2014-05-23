@@ -56,8 +56,9 @@ end
 
 # Get the cast for a given movie link
 def get_movie_cast(mov)
-  LOG.info("Retrieving movie cast for #{mov[:name]}")
-  doc_tree = Nokogiri::HTML(fetch(mov[:link].gsub("showtimes/", "") + "/fullcredits"))
+  link = mov[:link].gsub("showtimes/", "") + "/fullcredits"
+  LOG.info("Retrieving movie cast for #{mov[:name]} from '#{link}'.")
+  doc_tree = Nokogiri::HTML(fetch(link))
   cast = doc_tree.xpath("//table[@class='cast_list']//td[@itemprop='actor']/a")
   cast.collect { |c| link_from_node(c) }
 end
@@ -118,7 +119,12 @@ def get_all_ages
     ages = cast.map {|c| get_cast_member_age(c)}
     ages = ages.inject([]) {|t,a| t << a if a; t} # clean out nils
     LOG.debug("Ages were found for #{ages.count} out of #{cast.count} member(s).")
-    mov[:avg] = (ages.inject {|t,a| t + a }) / ages.count
+    if ages.count == 0
+      LOG.info("Movie (#{mov[:name]}) has no cast members with known birthdates")
+      mov[:avg] = "n/a"
+    else
+      mov[:avg] = (ages.inject {|t,a| t + a }) / ages.count
+    end
     mov
   end
 end
