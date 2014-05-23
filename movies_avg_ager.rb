@@ -60,7 +60,14 @@ def get_movie_show_date(mov)
   doc_tree = Nokogiri::HTML(fetch(mov[:link] + "/"))
   show_date = doc_tree.xpath("//*[@class='infobar']//meta[@itemprop='datePublished']/@content")
   LOG.debug("Movie '#{mov[:name]}' release date: '#{show_date}'")
-  DateTime.parse(show_date.to_s)
+  if show_date.to_s.length == 4
+    # The date is actually just a year
+    show_year = DateTime.new(show_date.to_s.to_i)
+    LOG.debug("Adjusted date to year '#{show_year}'")
+    return show_year
+  else
+    DateTime.parse(show_date.to_s)
+  end
 end
 
 # Get the cast for a given movie link
