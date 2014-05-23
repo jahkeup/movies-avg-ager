@@ -49,14 +49,23 @@ end
 # }
 def link_from_node(node)
   {
-    link: imdb_link(node['href'].split("?")[0]),
+    link: imdb_link(node['href'].split("?")[0]).gsub("showtimes/", ""),
     name: node.text.lstrip.rstrip
   }
 end
 
+# Get the movie showing date
+def get_movie_show_date(mov)
+  LOG.info("Retrieving movie '#{mov[:name]}' details from #{mov[:link]}/.")
+  doc_tree = Nokogiri::HTML(fetch(mov[:link] + "/"))
+  show_date = doc_tree.xpath("//*[@class='infobar']//meta[@itemprop='datePublished']/@content")
+  LOG.debug("Movie '#{mov[:name]}' release date: '#{show_date}'")
+  DateTime.parse(show_date.to_s)
+end
+
 # Get the cast for a given movie link
 def get_movie_cast(mov)
-  link = mov[:link].gsub("showtimes/", "") + "/fullcredits"
+  link = mov[:link] + "/fullcredits"
   LOG.info("Retrieving movie cast for #{mov[:name]} from '#{link}'.")
   doc_tree = Nokogiri::HTML(fetch(link))
   cast = doc_tree.xpath("//table[@class='cast_list']//td[@itemprop='actor']/a")
@@ -64,11 +73,9 @@ def get_movie_cast(mov)
 end
 
 # Parse a string date (1983-8-12) to an age in years
-def parse_age(borndate, deathdate = nil)
-  LOG.debug("Cast member birthdate: '#{borndate}'")
-  LOG.debug("Cast member died: '#{deathdate}'") if deathdate
-  deathdate ||= DateTime.now
-
+def parse_age(borndate, reldate)
+  LOG.debug("Cast member birthdate: '#{borndate.to_s}'")
+  LOG.debug("Cast member age relative to: '#{reldate.to_s}'")
 
   # Some actors don't have their age, they're up and coming actors
   if borndate.empty?
@@ -88,23 +95,23 @@ def parse_age(borndate, deathdate = nil)
 
   # Process death (end date) safely
   begin
-    deathdate = DateTime.parse(deathdate.to_s)
+    reldate = DateTime.parse(reldate.to_s)
   rescue Exception
     LOG.debug("The death date could not be parsed. Using today to calculate.")
-    deathdate = DateTime.now
+    return nil
   end
 
-  age = (deathdate - birthdate).to_i / 365
+  age = (reldate - birthdate).to_i / 365
 end
 
 # Get age of the cast member
-def get_cast_member_age(cst)
+def get_cast_member_age(cst, mov)
   LOG.info("Retreiving cast member '#{cst[:name]}' info at #{cst[:link]}")
   doc_tree = Nokogiri::HTML(fetch(cst[:link]))
   # Date in format YYYY-MM-DD
   born_date = doc_tree.xpath("//*[@id='name-born-info']//time/@datetime")
-  death_date = doc_tree.xpath("//*[@id='name-death-info']//time/@datetime")
-  age = parse_age(born_date.to_s, death_date.empty? ? nil : death_date.to_s)
+  movie_date = mov[:date]
+  age = parse_age(born_date.to_s, movie_date)
   LOG.debug("#{cst[:name]} => #{age}")
   age
 end
@@ -113,10 +120,12 @@ end
 def get_all_ages
   LOG.info("Retrieving stats...")
   movies = get_now_showing_movies
+  movies = [movies[0], movies[1]]
   movies.map do |mov|
+    mov[:date] = get_movie_show_date(mov)
     cast = get_movie_cast(mov)
     LOG.debug("Movie has #{cast.count} member(s)")
-    ages = cast.map {|c| get_cast_member_age(c)}
+    ages = cast.map {|c| get_cast_member_age(c, mov)}
     ages = ages.inject([]) {|t,a| t << a if a; t} # clean out nils
     LOG.debug("Ages were found for #{ages.count} out of #{cast.count} member(s).")
     if ages.count == 0
