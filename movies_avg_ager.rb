@@ -9,7 +9,7 @@ require 'pry'
 IMDB_BASE = 'http://www.imdb.com'
 IMDB_NOW_SHOWING_URL = IMDB_BASE + '/movies-in-theaters/'
 HTTP = Net::HTTP::Persistent.new('movies')
-LOG = Logger.new(STDOUT)
+LOG = Logger.new(STDERR)
 LOG.level = Logger::DEBUG
 
 def fetch(url)
@@ -56,27 +56,23 @@ end
 
 # Parse a string date (1983-8-12) to an age in years
 def parse_age(datestr)
-  LOG.debug("Cast member birthdate: #{born_date}")
+  LOG.debug("Cast member birthdate: '#{datestr}'")
   # Some actors don't have their age, they're up and coming actors
-  if born_date.empty?
+  if datestr.empty?
     LOG.debug("Cast member's birthdate is not available.")
     return nil
   end
 
-  if born_date =~ /[0-9]{4}-0-0$/
-    # Missing the birth month, just use the year they were born
-    born_date = born_date.split('-')[0] + "-1-1"
-  end
+  # If missing the birth month/day, just use the year they were born
+  datestr = datestr.split('-')[0] + "-1-1" if datestr =~ /-0-0/
 
   begin
-    birthdate = DateTime.parse(born_date.to_s)
+    birthdate = DateTime.parse(datestr.to_s)
   rescue ArgumentError
     LOG.debug("The date time format was invalid, skipping this cast member.")
     return nil
   end
   age = (DateTime.now - birthdate).to_i / 365
-  LOG.debug("#{cst[:name]} => #{age}")
-  age
 end
 
 # Get age of the cast member
@@ -85,12 +81,14 @@ def get_cast_member_age(cst)
   doc_tree = Nokogiri::HTML(fetch(cst[:link]))
   # Born date in format YYYY-MM-DD
   born_date = doc_tree.xpath("//*[@id='name-born-info']//time/@datetime")
-  parse_age(born_date)
+  age = parse_age(born_date.to_s)
+  LOG.debug("#{cst[:name]} => #{age}")
+  age
 end
 
 def get_all_ages
   LOG.info("Retrieving stats...")
-  movies = [get_now_showing_movies.first]
+  movies = get_now_showing_movies
   movies.map do |mov|
     cast = get_movie_cast(mov)
     LOG.debug("Movie has #{cast.count} member(s)")
