@@ -65,6 +65,11 @@ def get_movie_show_date(mov)
     show_year = DateTime.new(show_date.to_s.to_i)
     LOG.debug("Adjusted date to year '#{show_year}'")
     return show_year
+  elsif show_date.to_s =~ /^[0-9]{4}-[0-9]+$/
+    # First of the month if release date is given as a YYYY-MM
+    show_month = DateTime.parse(show_date.to_s + '-01')
+    LOG.debug("Adjusted date to the beginning of the premier month '#{show_month}'")
+    show_month
   else
     DateTime.parse(show_date.to_s)
   end
